@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -24,6 +26,11 @@ var dryerAgentState = AgentState{
 	Status: "idle",
 	User:   "",
 }
+var (
+	washerLastSeen time.Time
+	dryerLastSeen  time.Time
+	agentMutex     sync.Mutex
+)
 
 func main() {
 	// Load .env file if present, but do not overwrite already-set env vars
@@ -59,8 +66,43 @@ func main() {
 
 	// Endpoint de health check
 	app.Get("/health", func(c *fiber.Ctx) error {
+		// Determine online status: offline if last seen > 7 minutes
+		agentMutex.Lock()
+		ws := washerLastSeen
+		ds := dryerLastSeen
+		agentMutex.Unlock()
+
+		sevenMin := 7 * time.Minute
+		washerOnline := false
+		dryerOnline := false
+		var washerLast string
+		var dryerLast string
+		if !ws.IsZero() {
+			washerLast = ws.UTC().Format(time.RFC3339)
+			if time.Since(ws) <= sevenMin {
+				washerOnline = true
+			}
+		}
+		if !ds.IsZero() {
+			dryerLast = ds.UTC().Format(time.RFC3339)
+			if time.Since(ds) <= sevenMin {
+				dryerOnline = true
+			}
+		}
+
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status": "ok",
+			"api": fiber.Map{
+				"healthy": true,
+			},
+			"washer": fiber.Map{
+				"online":   washerOnline,
+				"lastSeen": washerLast,
+			},
+			"dryer": fiber.Map{
+				"online":   dryerOnline,
+				"lastSeen": dryerLast,
+			},
 		})
 	})
 
@@ -88,6 +130,10 @@ func main() {
 			washerAgentState.Status = "monitor"
 			washerAgentState.User = body.User
 		}
+		// Update last-seen timestamp when agent submits status
+		agentMutex.Lock()
+		washerLastSeen = time.Now()
+		agentMutex.Unlock()
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"message": "Agent status set successfully",
 			"status":  washerAgentState.Status,
@@ -100,6 +146,10 @@ func main() {
 		if washerAgentState.Status == "idle" {
 			user = ""
 		}
+		// Update last-seen timestamp when agent polls for status
+		agentMutex.Lock()
+		washerLastSeen = time.Now()
+		agentMutex.Unlock()
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status": washerAgentState.Status,
 			"user":   user,
@@ -130,6 +180,10 @@ func main() {
 			dryerAgentState.Status = "monitor"
 			dryerAgentState.User = body.User
 		}
+		// Update last-seen timestamp when agent submits status
+		agentMutex.Lock()
+		dryerLastSeen = time.Now()
+		agentMutex.Unlock()
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"message": "Agent status set successfully",
 			"status":  dryerAgentState.Status,
@@ -142,6 +196,10 @@ func main() {
 		if dryerAgentState.Status == "idle" {
 			user = ""
 		}
+		// Update last-seen timestamp when agent polls for status
+		agentMutex.Lock()
+		dryerLastSeen = time.Now()
+		agentMutex.Unlock()
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status": dryerAgentState.Status,
 			"user":   user,

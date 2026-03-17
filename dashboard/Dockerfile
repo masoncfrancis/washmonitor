@@ -5,8 +5,10 @@ WORKDIR /app
 
 ARG NODE_ENV=production
 
-COPY . .
+COPY package*.json ./
 RUN npm i
+
+COPY . .
 
 ARG NEXT_TELEMETRY_DISABLED=1
 
