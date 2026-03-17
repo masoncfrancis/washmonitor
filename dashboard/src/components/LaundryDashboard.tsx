@@ -212,8 +212,12 @@ const LaundryDashboard = () => {
                 const issues: string[] = [];
                 if (!apiHealthy) issues.push('Cannot reach API server');
                 if (userNamesError) issues.push('Could not obtain user names');
-                if (washerOnline === false) issues.push(`Washer offline (${formatRelativeTime(washerLastSeen) || 'unknown'})`);
-                if (dryerOnline === false) issues.push(`Dryer offline (${formatRelativeTime(dryerLastSeen) || 'unknown'})`);
+                if (washerOnline === false) {
+                    issues.push(washerLastSeen ? `Washer offline (${formatRelativeTime(washerLastSeen)})` : 'Washer offline');
+                }
+                if (dryerOnline === false) {
+                    issues.push(dryerLastSeen ? `Dryer offline (${formatRelativeTime(dryerLastSeen)})` : 'Dryer offline');
+                }
                 if (issues.length === 0) return null;
                 return (
                     <div className="w-full bg-red-700 text-white text-center py-2 text-lg font-semibold shadow-md z-30">

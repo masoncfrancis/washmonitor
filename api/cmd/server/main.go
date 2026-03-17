@@ -91,9 +91,8 @@ func main() {
 		}
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"status": "ok",
 			"api": fiber.Map{
-				"healthy": true,
+				"status": "ok",
 			},
 			"washer": fiber.Map{
 				"online":   washerOnline,
@@ -146,10 +145,6 @@ func main() {
 		if washerAgentState.Status == "idle" {
 			user = ""
 		}
-		// Update last-seen timestamp when agent polls for status
-		agentMutex.Lock()
-		washerLastSeen = time.Now()
-		agentMutex.Unlock()
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status": washerAgentState.Status,
 			"user":   user,
@@ -196,10 +191,6 @@ func main() {
 		if dryerAgentState.Status == "idle" {
 			user = ""
 		}
-		// Update last-seen timestamp when agent polls for status
-		agentMutex.Lock()
-		dryerLastSeen = time.Now()
-		agentMutex.Unlock()
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status": dryerAgentState.Status,
 			"user":   user,

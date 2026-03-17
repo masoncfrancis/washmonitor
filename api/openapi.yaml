@@ -192,15 +192,12 @@ paths:
               schema:
                 type: object
                 properties:
-                  status:
-                    type: string
-                    example: ok
                   api:
                     type: object
                     properties:
-                      healthy:
-                        type: boolean
-                        example: true
+                      status:
+                        type: string
+                        example: ok
                   washer:
                     type: object
                     properties:
