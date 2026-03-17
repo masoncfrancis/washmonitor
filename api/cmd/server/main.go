@@ -111,14 +111,6 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Malformed request",
 			})
-
-			// Endpoint for washer agent check-in (heartbeat)
-			app.Post("/washer/checkin", func(c *fiber.Ctx) error {
-				agentMutex.Lock()
-				washerLastSeen = time.Now()
-				agentMutex.Unlock()
-				return c.SendStatus(fiber.StatusOK)
-			})
 		}
 		if body.Status != "monitor" && body.Status != "idle" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -165,14 +157,6 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Malformed request",
 			})
-
-			// Endpoint for dryer agent check-in (heartbeat)
-			app.Post("/dryer/checkin", func(c *fiber.Ctx) error {
-				agentMutex.Lock()
-				dryerLastSeen = time.Now()
-				agentMutex.Unlock()
-				return c.SendStatus(fiber.StatusOK)
-			})
 		}
 		if body.Status != "monitor" && body.Status != "idle" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -200,6 +184,21 @@ func main() {
 			"status":  dryerAgentState.Status,
 			"user":    dryerAgentState.User,
 		})
+	})
+
+	// Top-level check-in endpoints for agents (heartbeats)
+	app.Post("/washer/checkin", func(c *fiber.Ctx) error {
+		agentMutex.Lock()
+		washerLastSeen = time.Now()
+		agentMutex.Unlock()
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	app.Post("/dryer/checkin", func(c *fiber.Ctx) error {
+		agentMutex.Lock()
+		dryerLastSeen = time.Now()
+		agentMutex.Unlock()
+		return c.SendStatus(fiber.StatusOK)
 	})
 
 	app.Get("/dryer/getAgentStatus", func(c *fiber.Ctx) error {
