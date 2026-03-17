@@ -114,7 +114,17 @@ if __name__ == "__main__":
 
         # Check agent status every 5 seconds, always
         if now - last_agent_check >= 5:
-            agentStatus = getAgentStatus()
+            try:
+                agentStatus = getAgentStatus()
+            except Exception as e:
+                print(f"Error polling agent status: {e}")
+                agentStatus = agentStatus
+            # Send a heartbeat/check-in to the API so server records last-seen
+            try:
+                requests.post(apiURL + "/washer/checkin", timeout=2)
+            except Exception:
+                # don't let heartbeat failures stop the loop
+                pass
             last_agent_check = now
 
         # Check washer status every 60 seconds, only if agent is monitoring

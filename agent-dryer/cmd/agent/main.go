@@ -90,6 +90,16 @@ func main() {
 		}
 		log.Printf("Agent status: %s", agentStatus.Status)
 
+		// Send a heartbeat/check-in to the API so server records last-seen
+		go func() {
+			resp, err := http.Post(API_SERVER_URL+"/dryer/checkin", "application/json", bytes.NewBuffer([]byte("{}")))
+			if err != nil {
+				log.Printf("Failed to send checkin: %v", err)
+				return
+			}
+			resp.Body.Close()
+		}()
+
 		if agentStatus.Status == "monitor" {
 			if !monitorActive {
 				monitorActive = true

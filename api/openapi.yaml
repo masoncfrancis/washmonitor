@@ -85,6 +85,15 @@ paths:
                     example: ""
         '500':
           description: An error occurred while getting the agent status
+  /washer/checkin:
+    post:
+      summary: Agent heartbeat for washer
+      description: Used by the washer agent to announce it's alive. Updates last-seen timestamp.
+      responses:
+        '200':
+          description: Check-in received
+        '500':
+          description: Server error
   /dryer/setAgentStatus:
     post:
       summary: Set the status of the dryer agent to either 'monitor' or 'idle'
@@ -164,6 +173,15 @@ paths:
                     example: ""
         '500':
           description: An error occurred while getting the agent status
+  /dryer/checkin:
+    post:
+      summary: Agent heartbeat for dryer
+      description: Used by the dryer agent to announce it's alive. Updates last-seen timestamp.
+      responses:
+        '200':
+          description: Check-in received
+        '500':
+          description: Server error
   /users/names:
     get:
       summary: Get the list of user names and colors
