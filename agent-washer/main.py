@@ -108,6 +108,7 @@ if __name__ == "__main__":
 
     last_washer_check = time.monotonic()
     last_agent_check = time.monotonic()
+    last_checkin_fail_print = 0.0
 
     while True:
         now = time.monotonic()
@@ -122,9 +123,12 @@ if __name__ == "__main__":
             # Send a heartbeat/check-in to the API so server records last-seen
             try:
                 requests.post(apiURL + "/washer/checkin", timeout=2)
-            except Exception:
-                # don't let heartbeat failures stop the loop
-                pass
+            except Exception as e:
+                now_mon = time.monotonic()
+                # print an error at most every 30 seconds
+                if now_mon - last_checkin_fail_print >= 30:
+                    print(f"Check-in request failed: {e}")
+                    last_checkin_fail_print = now_mon
             last_agent_check = now
 
         # Check washer status every 60 seconds, only if agent is monitoring

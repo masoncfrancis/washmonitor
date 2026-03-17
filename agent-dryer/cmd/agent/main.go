@@ -18,12 +18,14 @@ import (
 // StateSubmission holds a state and its timestamp
 
 var (
-	stateHistory        []StateSubmission
-	stateMutex          sync.Mutex
-	monitorActive       bool
-	monitorCancel       chan struct{}
-	stationaryTimer     time.Duration
-	lastStationaryState bool
+	stateHistory           []StateSubmission
+	stateMutex             sync.Mutex
+	monitorActive          bool
+	monitorCancel          chan struct{}
+	stationaryTimer        time.Duration
+	lastStationaryState    bool
+	lastFailedCheckinPrint time.Time
+	lastFailedCheckinMutex sync.Mutex
 )
 
 type StateSubmission struct {
@@ -94,7 +96,13 @@ func main() {
 		go func() {
 			resp, err := http.Post(API_SERVER_URL+"/dryer/checkin", "application/json", bytes.NewBuffer([]byte("{}")))
 			if err != nil {
-				log.Printf("Failed to send checkin: %v", err)
+				// print at most every 30s to avoid flooding logs
+				lastFailedCheckinMutex.Lock()
+				if time.Since(lastFailedCheckinPrint) >= 30*time.Second {
+					log.Printf("Check-in request failed: %v", err)
+					lastFailedCheckinPrint = time.Now()
+				}
+				lastFailedCheckinMutex.Unlock()
 				return
 			}
 			resp.Body.Close()
