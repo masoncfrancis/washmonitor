@@ -180,6 +180,44 @@ paths:
                     $ref: '#/components/schemas/UserInfo'
                   user2:
                     $ref: '#/components/schemas/UserInfo'
+  /health:
+    get:
+      summary: Health check including agent availability
+      description: Returns server health and agent last-seen/online status.
+      responses:
+        '200':
+          description: Health information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: ok
+                  washer:
+                    type: object
+                    properties:
+                      online:
+                        type: boolean
+                        example: true
+                      lastSeen:
+                        type: string
+                        format: date-time
+                        example: '2026-03-17T12:34:56Z'
+                  dryer:
+                    type: object
+                    properties:
+                      online:
+                        type: boolean
+                        example: true
+                      lastSeen:
+                        type: string
+                        format: date-time
+                        example: '2026-03-17T12:34:00Z'
       
 components:
   schemas:
@@ -194,18 +232,3 @@ components:
           type: string
           description: Color hex code
           example: '#22c55e'
-  /health:
-    get:
-      summary: Verificar el estado de salud del agente
-      description: Este endpoint permite comprobar que el servidor está funcionando correctamente.
-      responses:
-        '200':
-          description: El servidor está saludable
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok

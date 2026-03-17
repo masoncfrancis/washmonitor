@@ -18,6 +18,27 @@ const LaundryDashboard = () => {
     });
     const [userNamesError, setUserNamesError] = useState(false);
     const [apiHealthy, setApiHealthy] = useState(true);
+    const [washerOnline, setWasherOnline] = useState<boolean | null>(null);
+    const [dryerOnline, setDryerOnline] = useState<boolean | null>(null);
+    const [washerLastSeen, setWasherLastSeen] = useState<string | null>(null);
+    const [dryerLastSeen, setDryerLastSeen] = useState<string | null>(null);
+
+    const formatRelativeTime = (iso: string | null) => {
+        if (!iso) return '';
+        const then = new Date(iso).getTime();
+        if (Number.isNaN(then)) return '';
+        const diff = Date.now() - then;
+        if (diff < 0) return 'just now';
+        const seconds = Math.floor(diff / 1000);
+        if (seconds < 10) return 'just now';
+        if (seconds < 60) return `${seconds}s ago`;
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    };
 
 
     // 2-stage interaction state
@@ -52,6 +73,29 @@ const LaundryDashboard = () => {
                     } else {
                         setDryerUser(null);
                     }
+                }
+                // Fetch consolidated health info (includes washer/dryer online + lastSeen)
+                try {
+                    const healthRes = await fetch(`${API_URL}/health`);
+                    if (healthRes.ok) {
+                        const health = await healthRes.json();
+                        if (health?.api && typeof health.api.healthy === 'boolean') {
+                            setApiHealthy(health.api.healthy);
+                        }
+                        if (health?.washer) {
+                            setWasherOnline(Boolean(health.washer.online));
+                            setWasherLastSeen(health.washer.lastSeen || null);
+                        }
+                        if (health?.dryer) {
+                            setDryerOnline(Boolean(health.dryer.online));
+                            setDryerLastSeen(health.dryer.lastSeen || null);
+                        }
+                    } else {
+                        setApiHealthy(false);
+                    }
+                } catch (e) {
+                    console.log('Error fetching health:', e);
+                    setApiHealthy(false);
                 }
             } catch (e) {
                 console.log('Error fetching status:', e);
@@ -163,16 +207,24 @@ const LaundryDashboard = () => {
 
     return (
         <div className="flex flex-col h-screen w-screen">
-            {!apiHealthy && (
-                <div className="w-full bg-red-700 text-white text-center py-2 text-lg font-semibold shadow-md z-30">
-                    Connection issue: cannot reach API server. Some features may be unavailable.
-                </div>
-            )}
-            {userNamesError && (
-                <div className="w-full bg-red-600 text-white text-center py-2 text-lg font-semibold shadow-md z-20">
-                    Could not obtain user names. Using default placeholders.
-                </div>
-            )}
+            {/* Unified error banner: only shown when there are issues */}
+            {(() => {
+                const issues: string[] = [];
+                if (!apiHealthy) issues.push('Cannot reach API server');
+                if (userNamesError) issues.push('Could not obtain user names');
+                if (washerOnline === false) {
+                    issues.push(washerLastSeen ? `Washer offline (${formatRelativeTime(washerLastSeen)})` : 'Washer offline');
+                }
+                if (dryerOnline === false) {
+                    issues.push(dryerLastSeen ? `Dryer offline (${formatRelativeTime(dryerLastSeen)})` : 'Dryer offline');
+                }
+                if (issues.length === 0) return null;
+                return (
+                    <div className="w-full bg-red-700 text-white text-center py-2 text-lg font-semibold shadow-md z-30">
+                        {issues.join(' • ')}
+                    </div>
+                );
+            })()}
             {stage === 'main' && (
                 <div className="flex flex-1 flex-row w-full h-full">
                     {/* Washer splitscreen */}
