@@ -213,10 +213,10 @@ const LaundryDashboard = () => {
                 if (!apiHealthy) issues.push('Cannot reach API server');
                 if (userNamesError) issues.push('Could not obtain user names');
                 if (washerOnline === false) {
-                    issues.push(washerLastSeen ? `Washer sensor offline (${formatRelativeTime(washerLastSeen)})` : 'Washer offline');
+                    issues.push(washerLastSeen ? `Washer sensor offline (${formatRelativeTime(washerLastSeen)})` : 'Washer sensor offline');
                 }
                 if (dryerOnline === false) {
-                    issues.push(dryerLastSeen ? `Dryer sensor offline (${formatRelativeTime(dryerLastSeen)})` : 'Dryer offline');
+                    issues.push(dryerLastSeen ? `Dryer sensor offline (${formatRelativeTime(dryerLastSeen)})` : 'Dryer sensor offline');
                 }
                 if (issues.length === 0) return null;
                 return (
