@@ -18,12 +18,14 @@ import (
 // StateSubmission holds a state and its timestamp
 
 var (
-	stateHistory        []StateSubmission
-	stateMutex          sync.Mutex
-	monitorActive       bool
-	monitorCancel       chan struct{}
-	stationaryTimer     time.Duration
-	lastStationaryState bool
+	stateHistory           []StateSubmission
+	stateMutex             sync.Mutex
+	monitorActive          bool
+	monitorCancel          chan struct{}
+	stationaryTimer        time.Duration
+	lastStationaryState    bool
+	lastFailedCheckinPrint time.Time
+	lastFailedCheckinMutex sync.Mutex
 )
 
 type StateSubmission struct {
@@ -89,6 +91,22 @@ func main() {
 			return
 		}
 		log.Printf("Agent status: %s", agentStatus.Status)
+
+		// Send a heartbeat/check-in to the API so server records last-seen
+		go func() {
+			resp, err := http.Post(API_SERVER_URL+"/dryer/checkin", "application/json", bytes.NewBuffer([]byte("{}")))
+			if err != nil {
+				// print at most every 30s to avoid flooding logs
+				lastFailedCheckinMutex.Lock()
+				if time.Since(lastFailedCheckinPrint) >= 30*time.Second {
+					log.Printf("Check-in request failed: %v", err)
+					lastFailedCheckinPrint = time.Now()
+				}
+				lastFailedCheckinMutex.Unlock()
+				return
+			}
+			resp.Body.Close()
+		}()
 
 		if agentStatus.Status == "monitor" {
 			if !monitorActive {
