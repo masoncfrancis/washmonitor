@@ -17,6 +17,7 @@ const LaundryDashboard = () => {
         user2: { name: 'User2', color: '#22c55e' }, // green-500 as hex
     });
     const [userNamesError, setUserNamesError] = useState(false);
+    const [apiHealthy, setApiHealthy] = useState(true);
 
 
     // 2-stage interaction state
@@ -30,6 +31,12 @@ const LaundryDashboard = () => {
                     fetch(`${API_URL}/washer/getAgentStatus`),
                     fetch(`${API_URL}/dryer/getAgentStatus`),
                 ]);
+                // If any of the status endpoints fail, mark API as unhealthy
+                if (washerRes.ok && dryerRes.ok) {
+                    setApiHealthy(true);
+                } else {
+                    setApiHealthy(false);
+                }
                 if (washerRes.ok) {
                     const washerData = await washerRes.json();
                     if (washerData.status === 'monitor' && washerData.user) {
@@ -48,6 +55,7 @@ const LaundryDashboard = () => {
                 }
             } catch (e) {
                 console.log('Error fetching status:', e);
+                setApiHealthy(false);
             }
         };
 
@@ -55,6 +63,7 @@ const LaundryDashboard = () => {
             try {
                 const res = await fetch(`${API_URL}/users/names`);
                 if (!res.ok) {
+                    setApiHealthy(false);
                     setUserNamesError(true);
                     setUserInfo({
                         user1: { name: 'User1', color: '#3b82f6' },
@@ -63,6 +72,7 @@ const LaundryDashboard = () => {
                     return;
                 }
                 const data = await res.json();
+                setApiHealthy(true);
                 if (
                     data.user1 && data.user2 &&
                     typeof data.user1.name === 'string' && typeof data.user2.name === 'string' &&
@@ -81,6 +91,7 @@ const LaundryDashboard = () => {
                     });
                 }
             } catch (e) {
+                setApiHealthy(false);
                 setUserNamesError(true);
                 setUserInfo({
                     user1: { name: 'User1', color: '#3b82f6' },
@@ -152,6 +163,11 @@ const LaundryDashboard = () => {
 
     return (
         <div className="flex flex-col h-screen w-screen">
+            {!apiHealthy && (
+                <div className="w-full bg-red-700 text-white text-center py-2 text-lg font-semibold shadow-md z-30">
+                    Connection issue: cannot reach API server. Some features may be unavailable.
+                </div>
+            )}
             {userNamesError && (
                 <div className="w-full bg-red-600 text-white text-center py-2 text-lg font-semibold shadow-md z-20">
                     Could not obtain user names. Using default placeholders.
