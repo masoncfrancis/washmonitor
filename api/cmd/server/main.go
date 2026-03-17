@@ -72,7 +72,7 @@ func main() {
 		ds := dryerLastSeen
 		agentMutex.Unlock()
 
-		sevenMin := 7 * time.Minute
+		sevenMin := 4 * time.Minute
 		washerOnline := false
 		dryerOnline := false
 		var washerLast string
