@@ -3,7 +3,7 @@ module github.com/masoncfrancis/washmonitor-agent/api
 go 1.24.3
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.12
+	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/joho/godotenv v1.5.1
 )
 
