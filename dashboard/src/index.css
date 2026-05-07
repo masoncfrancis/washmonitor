@@ -56,6 +56,7 @@
   margin: 0 auto;
   text-align: center;
   border-inline: 1px solid var(--border);
+  min-height: 100vh;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -64,6 +65,10 @@
 
 body {
   margin: 0;
+}
+
+html, body, #root {
+  height: 100%;
 }
 
 h1,
@@ -114,7 +119,10 @@ code {
 .app-root {
   display: flex;
   flex-direction: column;
-  height: 100svh;
+  flex: 1;
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100%;
   width: 100%;
   margin: 0;
   box-sizing: border-box;
@@ -137,6 +145,7 @@ code {
   display: flex;
   flex: 1 1 auto;
   width: 100%;
+  height: calc(100vh - 48px);
   height: calc(100svh - 48px);
 }
 
@@ -208,7 +217,7 @@ code {
 .select-user-stage {
   display: flex;
   flex-direction: column;
-  height: calc(100svh - 0px);
+  flex: 1 1 auto;
   width: 100%;
 }
 .select-header {
