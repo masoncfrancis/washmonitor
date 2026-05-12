@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const API_URL = (import.meta.env.VITE_API_URL as string) || "";
 
@@ -21,6 +21,10 @@ const LaundryDashboard = () => {
   const [dryerOnline, setDryerOnline] = useState<boolean | null>(null);
   const [washerLastSeen, setWasherLastSeen] = useState<string | null>(null);
   const [dryerLastSeen, setDryerLastSeen] = useState<string | null>(null);
+
+  const mountedRef = useRef(false);
+  const controllersRef = useRef<AbortController[]>([]);
+  const timeoutsRef = useRef<number[]>([]);
 
   const formatRelativeTime = (iso: string | null) => {
     if (!iso) return "";
@@ -45,12 +49,28 @@ const LaundryDashboard = () => {
   >(null);
 
   useEffect(() => {
+    mountedRef.current = true;
+
+    const abortAllControllers = () => {
+      controllersRef.current.forEach((c) => c.abort());
+      controllersRef.current = [];
+    };
+
+    const clearAllTimeouts = () => {
+      timeoutsRef.current.forEach((t) => clearTimeout(t));
+      timeoutsRef.current = [];
+    };
+
     const fetchStatus = async () => {
+      const controller = new AbortController();
+      controllersRef.current.push(controller);
       try {
         const [washerRes, dryerRes] = await Promise.all([
-          fetch(`${API_URL}/washer/getAgentStatus`),
-          fetch(`${API_URL}/dryer/getAgentStatus`),
+          fetch(`${API_URL}/washer/getAgentStatus`, { signal: controller.signal }),
+          fetch(`${API_URL}/dryer/getAgentStatus`, { signal: controller.signal }),
         ]);
+        if (!mountedRef.current) return;
+
         if (washerRes.ok && dryerRes.ok) {
           setApiHealthy(true);
         } else {
@@ -58,6 +78,7 @@ const LaundryDashboard = () => {
         }
         if (washerRes.ok) {
           const washerData = await washerRes.json();
+          if (!mountedRef.current) return;
           if (washerData.status === "monitor" && washerData.user) {
             setWasherUser(washerData.user);
           } else {
@@ -66,6 +87,7 @@ const LaundryDashboard = () => {
         }
         if (dryerRes.ok) {
           const dryerData = await dryerRes.json();
+          if (!mountedRef.current) return;
           if (dryerData.status === "monitor" && dryerData.user) {
             setDryerUser(dryerData.user);
           } else {
@@ -73,7 +95,8 @@ const LaundryDashboard = () => {
           }
         }
         try {
-          const healthRes = await fetch(`${API_URL}/health`);
+          const healthRes = await fetch(`${API_URL}/health`, { signal: controller.signal });
+          if (!mountedRef.current) return;
           if (healthRes.ok) {
             const health = await healthRes.json();
             if (health?.api && typeof health.api.healthy === "boolean") {
@@ -90,19 +113,27 @@ const LaundryDashboard = () => {
           } else {
             setApiHealthy(false);
           }
-        } catch (e) {
+        } catch (e: any) {
+          if (e?.name === "AbortError") return;
           console.log("Error fetching health:", e);
           setApiHealthy(false);
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
         console.log("Error fetching status:", e);
         setApiHealthy(false);
+      } finally {
+        // remove controller from list
+        controllersRef.current = controllersRef.current.filter((c) => c !== controller);
       }
     };
 
     const fetchNames = async () => {
+      const controller = new AbortController();
+      controllersRef.current.push(controller);
       try {
-        const res = await fetch(`${API_URL}/users/names`);
+        const res = await fetch(`${API_URL}/users/names`, { signal: controller.signal });
+        if (!mountedRef.current) return;
         if (!res.ok) {
           setApiHealthy(false);
           setUserNamesError(true);
@@ -113,6 +144,7 @@ const LaundryDashboard = () => {
           return;
         }
         const data = await res.json();
+        if (!mountedRef.current) return;
         setApiHealthy(true);
         if (
           data.user1 &&
@@ -134,7 +166,8 @@ const LaundryDashboard = () => {
             user2: { name: "User2", color: "#22c55e" },
           });
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
         setApiHealthy(false);
         setUserNamesError(true);
         setUserInfo({
@@ -142,13 +175,20 @@ const LaundryDashboard = () => {
           user2: { name: "User2", color: "#22c55e" },
         });
         console.log("Error fetching user names:", e);
+      } finally {
+        controllersRef.current = controllersRef.current.filter((c) => c.signal !== controller.signal);
       }
     };
 
     fetchNames();
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000);
-    return () => clearInterval(interval);
+    const intervalId = window.setInterval(fetchStatus, 5000);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(intervalId);
+      abortAllControllers();
+      clearAllTimeouts();
+    };
   }, []);
 
   const handleApplianceClick = (appliance: "washer" | "dryer") => {
@@ -158,12 +198,21 @@ const LaundryDashboard = () => {
     ) {
       setLoading(appliance);
       const apiPath = appliance === "washer" ? "washer" : "dryer";
+      // create a controller for this user action request so it can be aborted if needed
+      const controller = new AbortController();
+      controllersRef.current.push(controller);
       fetch(`${API_URL}/${apiPath}/setAgentStatus`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "idle" }),
+        signal: controller.signal,
+      }).catch((e) => {
+        if ((e as any)?.name === "AbortError") return;
+        console.log("Error setting status:", e);
       }).finally(() => {
-        setTimeout(() => {
+        // simulate small delay for UI; store timeout so we can clear if unmounted
+        const t = window.setTimeout(() => {
+          if (!mountedRef.current) return;
           if (appliance === "washer") {
             setWasherUser(null);
           } else {
@@ -171,6 +220,8 @@ const LaundryDashboard = () => {
           }
           setLoading(null);
         }, 300);
+        timeoutsRef.current.push(t);
+        controllersRef.current = controllersRef.current.filter((c) => c !== controller);
       });
       return;
     }
@@ -182,25 +233,34 @@ const LaundryDashboard = () => {
     if (!selectedAppliance) return;
     setLoading(selectedAppliance);
     const apiPath = selectedAppliance === "washer" ? "washer" : "dryer";
+    const controller = new AbortController();
+    controllersRef.current.push(controller);
     try {
       await fetch(`${API_URL}/${apiPath}/setAgentStatus`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "monitor", user: person }),
+        signal: controller.signal,
       });
-    } catch (e) {
-      console.log("Error setting status:", e);
-    }
-    setTimeout(() => {
-      if (selectedAppliance === "washer") {
-        setWasherUser(person);
-      } else {
-        setDryerUser(person);
+    } catch (e: any) {
+      if (e?.name !== "AbortError") {
+        console.log("Error setting status:", e);
       }
-      setLoading(null);
-      setStage("main");
-      setSelectedAppliance(null);
-    }, 300);
+    } finally {
+      const t = window.setTimeout(() => {
+        if (!mountedRef.current) return;
+        if (selectedAppliance === "washer") {
+          setWasherUser(person);
+        } else {
+          setDryerUser(person);
+        }
+        setLoading(null);
+        setStage("main");
+        setSelectedAppliance(null);
+      }, 300);
+      timeoutsRef.current.push(t);
+      controllersRef.current = controllersRef.current.filter((c) => c !== controller);
+    }
   };
 
   return (
