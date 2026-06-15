@@ -1,4 +1,4 @@
-FROM ultralytics/ultralytics:latest-python
+FROM ultralytics/ultralytics:latest-cpu
 
 WORKDIR /app
 
