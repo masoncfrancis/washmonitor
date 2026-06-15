@@ -48,13 +48,6 @@ const LaundryDashboard = () => {
     return users.find((u) => u.id === id);
   };
 
-  const getGridCols = () => {
-    const count = users.length;
-    if (count <= 2) return 2;
-    if (count <= 4) return 2;
-    return 3;
-  };
-
   const parseUsersResponse = (data: Record<string, unknown>): User[] => {
     const parsedUsers: User[] = [];
 
@@ -378,18 +371,16 @@ const LaundryDashboard = () => {
           <div className="select-header">
             Who is using the {selectedAppliance}?
           </div>
-          <div
-            className="select-row"
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${getGridCols()}, minmax(0, 1fr))`,
-            }}
-          >
-            {users.map((user) => (
+          <div className={`select-row select-row-${users.length}`}>
+            {users.map((user, index) => (
               <button
                 type="button"
                 key={user.id}
-                className="select-person"
+                className={
+                  users.length === 3 && index === 2
+                    ? "select-person select-person-center-last"
+                    : "select-person"
+                }
                 style={{ backgroundColor: user.color }}
                 onClick={() => handleUserClick(user.id, selectedAppliance)}
               >

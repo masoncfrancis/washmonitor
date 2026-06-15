@@ -28,11 +28,5 @@
     "name": "Alex",
     "color": "#8b5cf6",
     "phone": "+3333333333"
-  },
-  {
-    "id": 6,
-    "name": "Pat",
-    "color": "#06b6d4",
-    "phone": "+4444444444"
   }
 ]
