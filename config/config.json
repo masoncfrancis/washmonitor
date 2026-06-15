@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "name": "John",
+    "color": "#3b82f6",
+    "phone": "+1234567890"
+  },
+  {
+    "id": 2,
+    "name": "Jane",
+    "color": "#22c55e",
+    "phone": "+0987654321"
+  },
+  {
+    "id": 3,
+    "name": "Mike",
+    "color": "#f59e0b",
+    "phone": "+1111111111"
+  },
+  {
+    "id": 4,
+    "name": "Sarah",
+    "color": "#ef4444",
+    "phone": "+2222222222"
+  },
+  {
+    "id": 5,
+    "name": "Alex",
+    "color": "#8b5cf6",
+    "phone": "+3333333333"
+  }
+]

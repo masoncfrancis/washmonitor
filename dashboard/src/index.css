@@ -67,7 +67,9 @@ body {
   margin: 0;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
@@ -158,6 +160,9 @@ code {
   text-align: center;
   color: white;
   cursor: pointer;
+  border: none;
+  padding: 0;
+  font-family: inherit;
   word-break: break-word;
   min-height: 0;
   font-size: 2.25rem; /* approx text-4xl */
@@ -230,8 +235,24 @@ code {
   font-weight: 600;
 }
 .select-row {
-  display: flex;
+  display: grid;
   flex: 1 1 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.select-row-6 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* For 5 users, wrap and center the second row (2 buttons). */
+.select-row-5 {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.select-row-5 .select-person {
+  flex: 0 0 33.3333%;
 }
 .select-person {
   flex: 1 1 0;
@@ -241,7 +262,17 @@ code {
   font-size: 2rem;
   color: white;
   cursor: pointer;
+  border: none;
+  padding: 0;
+  font-family: inherit;
 }
+
+.select-person-center-last {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: 50%;
+}
+
 .select-cancel {
   width: 100%;
   background: #374151; /* gray-700 */
@@ -251,7 +282,11 @@ code {
   font-size: 1.25rem;
   font-weight: 600;
   border-top: 1px solid #4b5563;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .loading-overlay {

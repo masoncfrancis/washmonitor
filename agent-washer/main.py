@@ -5,6 +5,7 @@ import proc.img as imgProc  # Import the image processing module
 import proc.ml as mlProc  # Import the machine learning module
 import os
 import time
+import json
 
 
 # Define the AgentStatus Enum
@@ -22,6 +23,20 @@ class WasherStatus(Enum):
 # Global vars
 washerStoppedCount = 0  # Counter for stopped washing machine
 agentStatus = AgentStatus.IDLE.value  # Use Enum value
+userPhoneMap = {}  # Map of user ID to phone number
+
+
+def loadConfig(configPath: str):
+    """Load user configuration from config.json"""
+    global userPhoneMap
+    try:
+        with open(configPath, 'r') as f:
+            users = json.load(f)
+        userPhoneMap = {user['id']: user['phone'] for user in users}
+        print(f"Loaded config with {len(userPhoneMap)} users")
+    except Exception as e:
+        print(f"Error loading config: {e}")
+        raise
 
 def setAgentStatus(status: AgentStatus, user: str = ""):
     payload = {"status": status.value}
@@ -106,6 +121,9 @@ if __name__ == "__main__":
 
     apiURL = os.environ.get('API_URL')
 
+    # Load user configuration from config.json
+    loadConfig('/config/config.json')
+
     last_washer_check = time.monotonic()
     last_agent_check = time.monotonic()
     last_checkin_fail_print = 0.0
@@ -119,7 +137,6 @@ if __name__ == "__main__":
                 agentStatus = getAgentStatus()
             except Exception as e:
                 print(f"Error polling agent status: {e}")
-                agentStatus = agentStatus
             # Send a heartbeat/check-in to the API so server records last-seen
             try:
                 requests.post(apiURL + "/washer/checkin", timeout=2)
@@ -144,21 +161,23 @@ if __name__ == "__main__":
                 print("Washing machine is stopped for 5 checks. Setting agent status to idle.")
 
                 # Get the user who started the monitoring
-                user = str(getAgentUser()).lower()
-                print(f"User who started monitoring: {user}")
+                try:
+                    userID = int(getAgentUser())
+                except Exception as e:
+                    print(f"Warning: could not parse monitoring user ID: {e}")
+                    userID = 0
+                print(f"User who started monitoring: {userID}")
 
                 # Set the agent status to idle
                 agentStatus = setAgentStatus(AgentStatus.IDLE)
                 washerStoppedCount = 0
 
                 # Notify the user
-                if user == "user2":
-                    # sendDiscordNotification("✅ Washing machine has finished running")
-                    destinationNumber = os.environ.get('USER2_PHONE_NUMBER')
+                if userID in userPhoneMap:
+                    destinationNumber = userPhoneMap[userID]
                     sendSmsMessage("✅ Washing machine has finished running", destinationNumber)
-                elif user == "user1":
-                    destinationNumber = os.environ.get('USER1_PHONE_NUMBER')
-                    sendSmsMessage("✅ Washing machine has finished running", destinationNumber)
+                else:
+                    print(f"Warning: No phone number found for user {userID}")
             else:
                 print(f"Washing machine is {washerStatus}. Agent status remains as monitor.")
 
