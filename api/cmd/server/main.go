@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
-	"github.com/masoncfrancis/washmonitor-agent/api/internal/config"
 	"github.com/masoncfrancis/washmonitor-agent/api/internal/userinfo"
 )
 
@@ -40,22 +41,11 @@ func main() {
 		log.Println("No .env file found or error loading .env (this is fine if env vars are set elsewhere):", err)
 	}
 
-	USER1_NAME_DEFAULT := "User1"
-	USER1_COLOR_DEFAULT := "#3b82f6" // blue-500 as hex
-	USER2_NAME_DEFAULT := "User2"
-	USER2_COLOR_DEFAULT := "#22c55e" // green-500 as hex
-
-	// Set default values for user env vars if not set
-	config.SetDefaultEnv("USER1_NAME", USER1_NAME_DEFAULT)
-	config.SetDefaultEnv("USER1_COLOR", USER1_COLOR_DEFAULT)
-	config.SetDefaultEnv("USER2_NAME", USER2_NAME_DEFAULT)
-	config.SetDefaultEnv("USER2_COLOR", USER2_COLOR_DEFAULT)
-
-	// Warn if any default values are being used
-	config.WarnIfDefaultUsed("USER1_NAME", USER1_NAME_DEFAULT)
-	config.WarnIfDefaultUsed("USER1_COLOR", USER1_COLOR_DEFAULT)
-	config.WarnIfDefaultUsed("USER2_NAME", USER2_NAME_DEFAULT)
-	config.WarnIfDefaultUsed("USER2_COLOR", USER2_COLOR_DEFAULT)
+	// Load config.json with user data
+	err = userinfo.LoadConfig("/config/config.json")
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
 	app := fiber.New()
 
@@ -122,6 +112,19 @@ func main() {
 				"error": "User is required when status is 'monitor'",
 			})
 		}
+		if body.Status == "monitor" {
+			userID, err := strconv.Atoi(body.User)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "User must be a numeric ID",
+				})
+			}
+			if _, err := userinfo.GetUserInfo(userID); err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "User ID is not configured",
+				})
+			}
+		}
 		if body.Status == "idle" {
 			washerAgentState.Status = "idle"
 			washerAgentState.User = ""
@@ -167,6 +170,19 @@ func main() {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "User is required when status is 'monitor'",
 			})
+		}
+		if body.Status == "monitor" {
+			userID, err := strconv.Atoi(body.User)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "User must be a numeric ID",
+				})
+			}
+			if _, err := userinfo.GetUserInfo(userID); err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "User ID is not configured",
+				})
+			}
 		}
 		if body.Status == "idle" {
 			dryerAgentState.Status = "idle"
@@ -214,19 +230,15 @@ func main() {
 
 	// Endpoint for user names and colors
 	app.Get("/users/names", func(c *fiber.Ctx) error {
-		user1 := userinfo.GetUserInfo(1)
-		user2 := userinfo.GetUserInfo(2)
-		// Ensure color is hex (if not, fallback to default)
-		if len(user1.Color) == 0 || user1.Color[0] != '#' {
-			user1.Color = USER1_COLOR_DEFAULT
+		users := userinfo.GetAllUsers()
+		response := make(map[string]fiber.Map)
+		for _, user := range users {
+			response[fmt.Sprintf("%d", user.ID)] = fiber.Map{
+				"name":  user.Name,
+				"color": user.Color,
+			}
 		}
-		if len(user2.Color) == 0 || user2.Color[0] != '#' {
-			user2.Color = USER2_COLOR_DEFAULT
-		}
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"user1": user1,
-			"user2": user2,
-		})
+		return c.Status(fiber.StatusOK).JSON(response)
 	})
 
 	app.Listen(":8001")
