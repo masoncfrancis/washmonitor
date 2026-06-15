@@ -229,6 +229,7 @@ code {
   flex-direction: column;
   flex: 1 1 auto;
   width: 100%;
+  background: #000;
 }
 .select-header {
   width: 100%;
@@ -243,6 +244,7 @@ code {
   display: grid;
   flex: 1 1 auto;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: #000;
 }
 
 .select-row-6 {
