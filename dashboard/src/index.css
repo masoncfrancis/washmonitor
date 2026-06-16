@@ -247,20 +247,30 @@ code {
   background: #000;
 }
 
+.select-row-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.select-row-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .select-row-6 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* For 5 users, wrap and center the second row (2 buttons). */
 .select-row-5 {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.select-row-5 .select-person {
-  flex: 0 0 33.3333%;
+.select-row-5 .select-person:nth-child(4) {
+  grid-column: 1 / 2;
 }
+
+.select-row-5 .select-person:nth-child(5) {
+  grid-column: 2 / 4;
+}
+
 .select-person {
   flex: 1 1 0;
   display: flex;
@@ -272,12 +282,6 @@ code {
   border: none;
   padding: 0;
   font-family: inherit;
-}
-
-.select-person-center-last {
-  grid-column: 1 / -1;
-  justify-self: center;
-  width: 50%;
 }
 
 .select-cancel {

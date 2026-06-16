@@ -372,15 +372,11 @@ const LaundryDashboard = () => {
             Who is using the {selectedAppliance}?
           </div>
           <div className={`select-row select-row-${users.length}`}>
-            {users.map((user, index) => (
+            {users.map((user) => (
               <button
                 type="button"
                 key={user.id}
-                className={
-                  users.length === 3 && index === 2
-                    ? "select-person select-person-center-last"
-                    : "select-person"
-                }
+                className="select-person"
                 style={{ backgroundColor: user.color }}
                 onClick={() => handleUserClick(user.id, selectedAppliance)}
               >
