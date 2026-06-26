@@ -9,10 +9,11 @@ import json
 import os
 import uuid
 
+
 def cropToControlPanel(imagePath):
     """
     Determines if the image contains a control panel and crops it if found. Returns the path to the cropped image and a status indicating whether the control panel was found, in a json response.
-    If it is not found, it returns the path to the original image and false status in a json response. 
+    If it is not found, it returns the path to the original image and false status in a json response.
 
     Args:
         imagePath (str): The path to the image file.
@@ -47,7 +48,7 @@ def cropToControlPanel(imagePath):
 
         # Add space around bounding box to make the output image 275x215
         xBuffer = (275 - xSize) // 2
-        yBuffer = (215 - ySize)
+        yBuffer = 215 - ySize
 
         croppedImage = image.crop((x1 - xBuffer, y1 - yBuffer, x2 + xBuffer, y2))
 
@@ -55,16 +56,13 @@ def cropToControlPanel(imagePath):
         filename = f"{uuid.uuid4()}.jpg"
 
         # save file to temp directory
-        tempDir = os.path.join(os.getcwd(), 'temp')
+        tempDir = os.path.join(os.getcwd(), "temp")
         os.makedirs(tempDir, exist_ok=True)
         croppedImagePath = os.path.join(tempDir, filename)
         croppedImage.save(croppedImagePath)
-        
 
-    return {
-        "imagePath": croppedImagePath,
-        "status": status
-    }
+    return {"imagePath": croppedImagePath, "status": status}
+
 
 def classifyControlPanel(imagePath):
     """
@@ -82,7 +80,6 @@ def classifyControlPanel(imagePath):
 
     # Get the class name from the result
     summary = result.summary()
-    className = summary[0]['name']
-
+    className = summary[0]["name"]
 
     return className

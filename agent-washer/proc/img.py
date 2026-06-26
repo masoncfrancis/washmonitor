@@ -8,6 +8,7 @@ import time
 import os
 import uuid
 
+
 def getImage(url):
     """
     Fetch an image from the given URL and save it to a temporary file.
@@ -19,9 +20,9 @@ def getImage(url):
         str: The path to the saved image file.
     """
     # Create a 'temp' directory in the current working directory if it doesn't exist
-    tempDir = os.path.join(os.getcwd(), 'temp')
+    tempDir = os.path.join(os.getcwd(), "temp")
     os.makedirs(tempDir, exist_ok=True)
-    
+
     # Generate a random file name
     tempFileName = f"{uuid.uuid4()}.jpg"
     tempFilePath = os.path.join(tempDir, tempFileName)
@@ -32,12 +33,14 @@ def getImage(url):
     # Check if the request was successful
     if response.status_code == 200:
         # Save the image to the temporary file
-        with open(tempFilePath, 'wb') as f:
+        with open(tempFilePath, "wb") as f:
             f.write(response.content)
         return tempFilePath
     else:
-        raise Exception(f"Failed to fetch image from {url}. Status code: {response.status_code}")
-    
+        raise Exception(
+            f"Failed to fetch image from {url}. Status code: {response.status_code}"
+        )
+
 
 def deleteImage(imagePath):
     """
@@ -50,4 +53,3 @@ def deleteImage(imagePath):
         os.remove(imagePath)
     except Exception as e:
         print(f"Error deleting image: {e}")
-        
