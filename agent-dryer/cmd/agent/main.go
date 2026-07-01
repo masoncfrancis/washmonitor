@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +18,38 @@ import (
 )
 
 // StateSubmission holds a state and its timestamp
+
+type User struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
+	Phone string `json:"phone"`
+}
+
+var userPhoneMap = make(map[int]string)
+
+func loadConfig(configPath string) error {
+	data, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file at %s: %w", configPath, err)
+	}
+
+	var users []User
+	err = json.Unmarshal(data, &users)
+	if err != nil {
+		return fmt.Errorf("failed to parse config.json: %w", err)
+	}
+
+	if len(users) == 0 {
+		return fmt.Errorf("config.json must contain at least 1 user")
+	}
+
+	for _, user := range users {
+		userPhoneMap[user.ID] = user.Phone
+	}
+	log.Printf("Loaded config with %d users", len(users))
+	return nil
+}
 
 var (
 	stateHistory           []StateSubmission
@@ -38,6 +72,12 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Warning: .env file not found, proceeding with environment variables.")
+	}
+
+	// Load user configuration from config.json
+	err = loadConfig("/config/config.json")
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
 	API_SERVER_URL := os.Getenv("API_SERVER_URL")
@@ -159,14 +199,16 @@ func main() {
 										}
 									}
 									// Notify only the user who started monitoring
-									var destinationNumber string
-									switch user {
-									case "user1":
-										destinationNumber = os.Getenv("USER1_PHONE_NUMBER")
-									case "user2":
-										destinationNumber = os.Getenv("USER2_PHONE_NUMBER")
-									default:
-										log.Printf("Unknown user '%s', skipping SMS notification", user)
+									userID := 0
+									if _, err := fmt.Sscanf(user, "%d", &userID); err != nil {
+										log.Printf("Failed to parse user ID '%s': %v", user, err)
+										return
+									}
+									
+									destinationNumber, ok := userPhoneMap[userID]
+									if !ok {
+										log.Printf("No phone number found for user %d", userID)
+										return
 									}
 									if destinationNumber != "" {
 										smsURL := os.Getenv("SEND_SMS_URL")

@@ -8,10 +8,8 @@ services:
       - "8001:8001"
     environment:
       - API_ENV=production
-      - USER1_NAME=John
-      - USER2_NAME=Jane
-      - USER1_COLOR=#3b82f6
-      - USER2_COLOR=#22c55e
+    volumes:
+      - ./config:/config:ro
     restart: unless-stopped
 
   agent-dryer:
@@ -24,19 +22,21 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+    volumes:
+      - ./config:/config:ro
     environment:
       - API_SERVER_URL=http://api:8001
       - SEND_SMS_URL=https://your_sms_webhook_url
       - SMS_USER=your_sms_username
       - SMS_PASSWORD=your_sms_password
-      - USER1_PHONE_NUMBER=user1_phone_number
-      - USER2_PHONE_NUMBER=user2_phone_number
 
   agent-washer:
     build:
       context: ./agent-washer
       dockerfile: Dockerfile
     container_name: washmonitor-agent-washer
+    volumes:
+      - ./config:/config:ro
     environment:
       - API_URL=http://api:8001
       - WASHER_CAMERA_URL=http://your_camera_url
@@ -44,8 +44,6 @@ services:
       - SEND_SMS_URL=https://your_sms_webhook_url
       - SMS_USER=your_sms_username
       - SMS_PASSWORD=your_sms_password
-      - USER1_PHONE_NUMBER=user1_phone_number
-      - USER2_PHONE_NUMBER=user2_phone_number
     depends_on:
       - api
     restart: unless-stopped
@@ -55,7 +53,7 @@ services:
       dockerfile: Dockerfile
     container_name: washmonitor-dashboard
     ports:
-      - "3000:3000"
+      - "3000:8080"
     depends_on:
       - api
     restart: unless-stopped

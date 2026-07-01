@@ -17,27 +17,28 @@ paths:
             schema:
               oneOf:
                 - type: object
-                  required: [ status, user ]
+                  required: [status, user]
                   properties:
                     status:
                       type: string
-                      enum: [ monitor ]
+                      enum: [monitor]
                       description: The status must be 'monitor'
                     user:
                       type: string
-                      description: The user currently using the washer
+                      description: Numeric user ID as a string (for example, '1')
+                      pattern: "^[1-6]$"
                 - type: object
-                  required: [ status ]
+                  required: [status]
                   properties:
                     status:
                       type: string
-                      enum: [ idle ]
+                      enum: [idle]
                       description: The status must be 'idle'
                     user:
                       type: string
                       description: The user (optional if status is 'idle')
       responses:
-        '200':
+        "200":
           description: The status of the washer agent has been set
           content:
             application/json:
@@ -52,8 +53,8 @@ paths:
                     example: monitor
                   user:
                     type: string
-                    example: User1
-        '400':
+                    example: "1"
+        "400":
           description: The request was malformed
           content:
             application/json:
@@ -62,15 +63,19 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: Malformed request
-        '500':
+                    examples:
+                      - Malformed request
+                      - User is required when status is 'monitor'
+                      - User must be a numeric ID
+                      - User ID is not configured
+        "500":
           description: An error occurred while setting the agent status
   /washer/getAgentStatus:
     get:
       summary: Get the status of the washer agent
       description: This endpoint allows the user to get the status of the washer agent
       responses:
-        '200':
+        "200":
           description: The status of the washer agent has been retrieved
           content:
             application/json:
@@ -83,16 +88,16 @@ paths:
                   user:
                     type: string
                     example: ""
-        '500':
+        "500":
           description: An error occurred while getting the agent status
   /washer/checkin:
     post:
       summary: Agent heartbeat for washer
       description: Used by the washer agent to announce it's alive. Updates last-seen timestamp.
       responses:
-        '200':
+        "200":
           description: Check-in received
-        '500':
+        "500":
           description: Server error
   /dryer/setAgentStatus:
     post:
@@ -105,27 +110,28 @@ paths:
             schema:
               oneOf:
                 - type: object
-                  required: [ status, user ]
+                  required: [status, user]
                   properties:
                     status:
                       type: string
-                      enum: [ monitor ]
+                      enum: [monitor]
                       description: The status must be 'monitor'
                     user:
                       type: string
-                      description: The user currently using the dryer
+                      description: Numeric user ID as a string (for example, '1')
+                      pattern: "^[1-6]$"
                 - type: object
-                  required: [ status ]
+                  required: [status]
                   properties:
                     status:
                       type: string
-                      enum: [ idle ]
+                      enum: [idle]
                       description: The status must be 'idle'
                     user:
                       type: string
                       description: The user (optional if status is 'idle')
       responses:
-        '200':
+        "200":
           description: The status of the dryer agent has been set
           content:
             application/json:
@@ -140,8 +146,8 @@ paths:
                     example: monitor
                   user:
                     type: string
-                    example: User1
-        '400':
+                    example: "1"
+        "400":
           description: The request was malformed
           content:
             application/json:
@@ -150,15 +156,19 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: Malformed request
-        '500':
+                    examples:
+                      - Malformed request
+                      - User is required when status is 'monitor'
+                      - User must be a numeric ID
+                      - User ID is not configured
+        "500":
           description: An error occurred while setting the agent status
   /dryer/getAgentStatus:
     get:
       summary: Get the status of the dryer agent
       description: This endpoint allows the user to get the status of the dryer agent
       responses:
-        '200':
+        "200":
           description: The status of the dryer agent has been retrieved
           content:
             application/json:
@@ -171,39 +181,46 @@ paths:
                   user:
                     type: string
                     example: ""
-        '500':
+        "500":
           description: An error occurred while getting the agent status
   /dryer/checkin:
     post:
       summary: Agent heartbeat for dryer
       description: Used by the dryer agent to announce it's alive. Updates last-seen timestamp.
       responses:
-        '200':
+        "200":
           description: Check-in received
-        '500':
+        "500":
           description: Server error
   /users/names:
     get:
       summary: Get the list of user names and colors
-      description: This endpoint allows the user to retrieve the list of user names and their associated colors.
+      description: This endpoint returns configured users keyed by numeric user ID strings.
       responses:
-        '200':
+        "200":
           description: The list of user names and colors has been retrieved
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  user1:
-                    $ref: '#/components/schemas/UserInfo'
-                  user2:
-                    $ref: '#/components/schemas/UserInfo'
+                additionalProperties:
+                  $ref: "#/components/schemas/UserInfo"
+              examples:
+                dynamicUsers:
+                  summary: Dynamic users keyed by ID
+                  value:
+                    "1":
+                      name: John
+                      color: "#3b82f6"
+                    "2":
+                      name: Jane
+                      color: "#22c55e"
   /health:
     get:
       summary: Health check including agent availability
       description: Returns server health and agent last-seen/online status.
       responses:
-        '200':
+        "200":
           description: Health information
           content:
             application/json:
@@ -225,7 +242,7 @@ paths:
                       lastSeen:
                         type: string
                         format: date-time
-                        example: '2026-03-17T12:34:56Z'
+                        example: "2026-03-17T12:34:56Z"
                   dryer:
                     type: object
                     properties:
@@ -235,8 +252,8 @@ paths:
                       lastSeen:
                         type: string
                         format: date-time
-                        example: '2026-03-17T12:34:00Z'
-      
+                        example: "2026-03-17T12:34:00Z"
+
 components:
   schemas:
     UserInfo:
@@ -249,4 +266,4 @@ components:
         color:
           type: string
           description: Color hex code
-          example: '#22c55e'
+          example: "#22c55e"
