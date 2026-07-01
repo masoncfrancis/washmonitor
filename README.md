@@ -1,4 +1,6 @@
 # washmonitor-agent
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmasoncfrancis%2Fwashmonitor-agent.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmasoncfrancis%2Fwashmonitor-agent?ref=badge_shield)
+
 
 A service that uses computer vision ML models to let me know when my non-smart washer is finished running
 
@@ -62,3 +64,7 @@ pip install -r requirements.txt
 
 - `NOTIFICATION_WEBHOOK_URL`: The URL the agent should call to send a notification to the user through a service of your choice, like Discord
 
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmasoncfrancis%2Fwashmonitor-agent.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmasoncfrancis%2Fwashmonitor-agent?ref=badge_large)
