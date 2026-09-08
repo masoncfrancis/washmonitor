@@ -20,7 +20,6 @@ type Config struct {
 	Role              string
 	APIServerURL      string
 	ShellyURL         string
-	ShellyComponent   string
 	ShellyUsername    string
 	ShellyPassword    string
 	PollInterval      time.Duration
@@ -40,13 +39,12 @@ func loadConfig(getenv func(string) string) (Config, error) {
 		Role:              getenv("APPLIANCE_ROLE"),
 		APIServerURL:      getenv("API_SERVER_URL"),
 		ShellyURL:         getenv("SHELLY_URL"),
-		ShellyComponent:   getenv("SHELLY_COMPONENT"),
 		ShellyUsername:    getenv("SHELLY_USERNAME"),
 		ShellyPassword:    getenv("SHELLY_PASSWORD"),
 		PollInterval:      durationEnv(getenv, "SHELLY_POLL_INTERVAL_SECONDS", 5*time.Second),
-		ActiveThreshold:   floatEnv(getenv, "POWER_ACTIVE_THRESHOLD_W", 20),
-		InactiveThreshold: floatEnv(getenv, "POWER_INACTIVE_THRESHOLD_W", 5),
-		InactiveDuration:  durationEnv(getenv, "POWER_INACTIVE_DURATION_SECONDS", 5*time.Minute),
+		ActiveThreshold:   floatEnv(getenv, "CURRENT_ACTIVE_THRESHOLD_A", 0.5),
+		InactiveThreshold: floatEnv(getenv, "CURRENT_INACTIVE_THRESHOLD_A", 0.1),
+		InactiveDuration:  durationEnv(getenv, "CURRENT_INACTIVE_DURATION_SECONDS", 5*time.Minute),
 		HTTPTimeout:       durationEnv(getenv, "HTTP_TIMEOUT_SECONDS", 10*time.Second),
 		ListenAddr:        getenv("LISTEN_ADDR"),
 		ConfigPath:        getenv("CONFIG_PATH"),
@@ -56,9 +54,6 @@ func loadConfig(getenv func(string) string) (Config, error) {
 	}
 	if config.Role == "" {
 		config.Role = "washer"
-	}
-	if config.ShellyComponent == "" {
-		config.ShellyComponent = "switch:0"
 	}
 	if config.ListenAddr == "" {
 		config.ListenAddr = ":8005"
@@ -108,19 +103,21 @@ func floatEnv(getenv func(string) string, key string, fallback float64) float64 
 }
 
 type ShellyClient struct {
-	baseURL   string
-	component string
-	username  string
-	password  string
-	client    *http.Client
+	baseURL  string
+	username string
+	password string
+	client   *http.Client
 }
 
-func (client *ShellyClient) ReadPower(ctx context.Context) (float64, error) {
+func (client *ShellyClient) ReadCurrent(ctx context.Context) (float64, error) {
 	endpoint, err := url.Parse(client.baseURL)
 	if err != nil {
 		return 0, fmt.Errorf("parse Shelly URL: %w", err)
 	}
-	endpoint.Path = path.Join(endpoint.Path, "/rpc/Shelly.GetStatus")
+	endpoint.Path = path.Join(endpoint.Path, "/rpc/PM1.GetStatus")
+	query := endpoint.Query()
+	query.Set("id", "0")
+	endpoint.RawQuery = query.Encode()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return 0, fmt.Errorf("create Shelly request: %w", err)
@@ -137,47 +134,46 @@ func (client *ShellyClient) ReadPower(ctx context.Context) (float64, error) {
 		return 0, fmt.Errorf("Shelly status returned %s", response.Status)
 	}
 
-	var status map[string]struct {
-		ActivePower float64 `json:"apower"`
+	var status struct {
+		Current *float64 `json:"current"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&status); err != nil {
 		return 0, fmt.Errorf("decode Shelly status: %w", err)
 	}
-	component, ok := status[client.component]
-	if !ok {
-		return 0, fmt.Errorf("Shelly component %q not found", client.component)
+	if status.Current == nil {
+		return 0, errors.New("Shelly PM response missing current")
 	}
-	return component.ActivePower, nil
+	return *status.Current, nil
 }
 
-type PowerState int
+type CurrentState int
 
 const (
-	unknown PowerState = iota
+	unknown CurrentState = iota
 	active
 	inactive
 )
 
-type PowerMonitor struct {
+type CurrentMonitor struct {
 	activeThreshold   float64
 	inactiveThreshold float64
 	inactiveDuration  time.Duration
-	state             PowerState
+	state             CurrentState
 	activeObserved    bool
 	inactiveElapsed   time.Duration
 	lastGoodAt        time.Time
 	lastObservationOK bool
 }
 
-func NewPowerMonitor(activeThreshold, inactiveThreshold float64, inactiveDuration time.Duration) *PowerMonitor {
-	return &PowerMonitor{
+func NewCurrentMonitor(activeThreshold, inactiveThreshold float64, inactiveDuration time.Duration) *CurrentMonitor {
+	return &CurrentMonitor{
 		activeThreshold:   activeThreshold,
 		inactiveThreshold: inactiveThreshold,
 		inactiveDuration:  inactiveDuration,
 	}
 }
 
-func (monitor *PowerMonitor) Reset() {
+func (monitor *CurrentMonitor) Reset() {
 	monitor.state = unknown
 	monitor.activeObserved = false
 	monitor.inactiveElapsed = 0
@@ -185,7 +181,7 @@ func (monitor *PowerMonitor) Reset() {
 	monitor.lastObservationOK = false
 }
 
-func (monitor *PowerMonitor) Observe(now time.Time, watts float64, err error) bool {
+func (monitor *CurrentMonitor) Observe(now time.Time, amps float64, err error) bool {
 	if err != nil {
 		monitor.lastObservationOK = false
 		return false
@@ -201,11 +197,11 @@ func (monitor *PowerMonitor) Observe(now time.Time, watts float64, err error) bo
 	monitor.lastObservationOK = true
 
 	switch {
-	case watts >= monitor.activeThreshold:
+	case amps >= monitor.activeThreshold:
 		monitor.state = active
 		monitor.activeObserved = true
 		monitor.inactiveElapsed = 0
-	case watts <= monitor.inactiveThreshold:
+	case amps <= monitor.inactiveThreshold:
 		monitor.state = inactive
 	case monitor.state == unknown:
 		monitor.state = inactive
@@ -214,7 +210,7 @@ func (monitor *PowerMonitor) Observe(now time.Time, watts float64, err error) bo
 	return monitor.activeObserved && monitor.state == inactive && monitor.inactiveElapsed >= monitor.inactiveDuration
 }
 
-func (monitor *PowerMonitor) State() PowerState {
+func (monitor *CurrentMonitor) State() CurrentState {
 	return monitor.state
 }
 
@@ -249,7 +245,7 @@ type Worker struct {
 	httpClient  *http.Client
 	shelly      *ShellyClient
 	users       map[int]string
-	monitor     *PowerMonitor
+	monitor     *CurrentMonitor
 	lastStatus  string
 	statusMutex sync.Mutex
 }
@@ -368,12 +364,12 @@ func (worker *Worker) tick(ctx context.Context, now time.Time) {
 		log.Printf("get %s status: %v", worker.config.Role, err)
 		return
 	}
-	watts, readErr := worker.shelly.ReadPower(ctx)
+	amps, readErr := worker.shelly.ReadCurrent(ctx)
 	if err := worker.checkIn(ctx, readErr == nil); err != nil {
 		log.Printf("check in %s worker: %v", worker.config.Role, err)
 	}
 	if readErr != nil {
-		log.Printf("read Shelly power: %v", readErr)
+		log.Printf("read Shelly current: %v", readErr)
 		if status.Status != "monitor" {
 			worker.monitor.Reset()
 		}
@@ -390,7 +386,7 @@ func (worker *Worker) tick(ctx context.Context, now time.Time) {
 		worker.monitor.Reset()
 		worker.lastStatus = "monitor"
 	}
-	if worker.monitor.Observe(now, watts, nil) {
+	if worker.monitor.Observe(now, amps, nil) {
 		if err := worker.setIdle(ctx); err != nil {
 			log.Printf("set %s idle: %v", worker.config.Role, err)
 			return
@@ -417,13 +413,12 @@ func main() {
 		config:     config,
 		httpClient: httpClient,
 		users:      users,
-		monitor:    NewPowerMonitor(config.ActiveThreshold, config.InactiveThreshold, config.InactiveDuration),
+		monitor:    NewCurrentMonitor(config.ActiveThreshold, config.InactiveThreshold, config.InactiveDuration),
 		shelly: &ShellyClient{
-			baseURL:   config.ShellyURL,
-			component: config.ShellyComponent,
-			username:  config.ShellyUsername,
-			password:  config.ShellyPassword,
-			client:    httpClient,
+			baseURL:  config.ShellyURL,
+			username: config.ShellyUsername,
+			password: config.ShellyPassword,
+			client:   httpClient,
 		},
 	}
 

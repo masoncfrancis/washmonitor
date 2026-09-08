@@ -13,14 +13,16 @@ A service that uses computer vision ML models to let me know when my non-smart w
 device. It is a sensor backend, not a separate user-facing power monitor.
 
 Set `APPLIANCE_ROLE=washer` or `APPLIANCE_ROLE=dryer` and configure the Shelly
-URL and component. The worker polls the device's local
-`/rpc/Shelly.GetStatus` endpoint over HTTP and reads instantaneous active power
-from `apower`. Readings above `POWER_ACTIVE_THRESHOLD_W` indicate that the
-machine is running; readings below `POWER_INACTIVE_THRESHOLD_W` indicate that
-it is inactive. Values between those thresholds preserve the previous state.
+URL. The worker polls the device's local
+`/rpc/PM1.GetStatus?id=0` endpoint over HTTP and reads the top-level
+`current` value in amps. The response may also contain `apower` and cumulative
+energy fields; those are intentionally ignored. Readings at or above `CURRENT_ACTIVE_THRESHOLD_A`
+indicate that the machine is running; readings at or below
+`CURRENT_INACTIVE_THRESHOLD_A` indicate that it is inactive. Values between
+those thresholds preserve the previous state.
 
 The worker requires an active reading after monitoring starts before it can
-notify. It then waits for `POWER_INACTIVE_DURATION_SECONDS` of valid inactive
+notify. It then waits for `CURRENT_INACTIVE_DURATION_SECONDS` of valid inactive
 readings before sending the existing finished notification and returning the
 selected appliance to `idle`. Shelly request failures mark the selected sensor
 unhealthy and do not count toward the inactive duration.

@@ -9,43 +9,42 @@ import (
 	"time"
 )
 
-func TestShellyClientReadPower(t *testing.T) {
+func TestShellyClientReadCurrent(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/rpc/Shelly.GetStatus" {
-			t.Fatalf("unexpected path %q", request.URL.Path)
+		if request.URL.Path != "/rpc/PM1.GetStatus" || request.URL.Query().Get("id") != "0" {
+			t.Fatalf("unexpected request %s", request.URL.String())
 		}
-		_, _ = response.Write([]byte(`{"switch:0":{"apower":137.4}}`))
+		_, _ = response.Write([]byte(`{"id":0,"voltage":121.6,"current":1.37,"apower":166.7,"aenergy":{"total":487.164}}`))
 	}))
 	defer server.Close()
 
 	client := ShellyClient{
-		baseURL:   server.URL,
-		component: "switch:0",
-		client:    server.Client(),
+		baseURL: server.URL,
+		client:  server.Client(),
 	}
-	watts, err := client.ReadPower(context.Background())
+	amps, err := client.ReadCurrent(context.Background())
 	if err != nil {
-		t.Fatalf("ReadPower returned error: %v", err)
+		t.Fatalf("ReadCurrent returned error: %v", err)
 	}
-	if watts != 137.4 {
-		t.Fatalf("ReadPower returned %v watts, want 137.4", watts)
+	if amps != 1.37 {
+		t.Fatalf("ReadCurrent returned %v amps, want 1.37", amps)
 	}
 }
 
-func TestShellyClientReadPowerRejectsMissingComponent(t *testing.T) {
+func TestShellyClientReadCurrentRejectsMissingCurrent(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		_, _ = response.Write([]byte(`{"switch:1":{"apower":10}}`))
+		_, _ = response.Write([]byte(`{"id":0,"voltage":121.6,"apower":6.7}`))
 	}))
 	defer server.Close()
 
-	client := ShellyClient{baseURL: server.URL, component: "switch:0", client: server.Client()}
-	if _, err := client.ReadPower(context.Background()); err == nil {
-		t.Fatal("ReadPower returned nil error for missing component")
+	client := ShellyClient{baseURL: server.URL, client: server.Client()}
+	if _, err := client.ReadCurrent(context.Background()); err == nil {
+		t.Fatal("ReadCurrent returned nil error for missing current")
 	}
 }
 
-func TestPowerMonitorRequiresActiveReading(t *testing.T) {
-	monitor := NewPowerMonitor(20, 5, 10*time.Second)
+func TestCurrentMonitorRequiresActiveReading(t *testing.T) {
+	monitor := NewCurrentMonitor(0.5, 0.1, 10*time.Second)
 	start := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	if monitor.Observe(start, 0, nil) {
@@ -59,26 +58,26 @@ func TestPowerMonitorRequiresActiveReading(t *testing.T) {
 	}
 }
 
-func TestPowerMonitorCompletesAfterContinuousInactivePower(t *testing.T) {
-	monitor := NewPowerMonitor(20, 5, 10*time.Second)
+func TestCurrentMonitorCompletesAfterContinuousInactiveCurrent(t *testing.T) {
+	monitor := NewCurrentMonitor(0.5, 0.1, 10*time.Second)
 	start := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 
-	monitor.Observe(start, 100, nil)
-	if monitor.Observe(start.Add(5*time.Second), 3, nil) {
+	monitor.Observe(start, 1.5, nil)
+	if monitor.Observe(start.Add(5*time.Second), 0.05, nil) {
 		t.Fatal("monitor completed too early")
 	}
-	if !monitor.Observe(start.Add(15*time.Second), 3, nil) {
+	if !monitor.Observe(start.Add(15*time.Second), 0.05, nil) {
 		t.Fatal("monitor did not complete after inactive duration")
 	}
 }
 
-func TestPowerMonitorHysteresisAndErrorPause(t *testing.T) {
-	monitor := NewPowerMonitor(20, 5, 10*time.Second)
+func TestCurrentMonitorHysteresisAndErrorPause(t *testing.T) {
+	monitor := NewCurrentMonitor(0.5, 0.1, 10*time.Second)
 	start := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 
-	monitor.Observe(start, 100, nil)
-	monitor.Observe(start.Add(1*time.Second), 3, nil)
-	monitor.Observe(start.Add(5*time.Second), 10, nil)
+	monitor.Observe(start, 1.5, nil)
+	monitor.Observe(start.Add(1*time.Second), 0.05, nil)
+	monitor.Observe(start.Add(5*time.Second), 0.2, nil)
 	if monitor.State() != inactive {
 		t.Fatalf("state in hysteresis band = %v, want inactive", monitor.State())
 	}
@@ -104,7 +103,7 @@ func TestLoadConfigRoleAndDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadConfig returned error: %v", err)
 	}
-	if config.Role != "dryer" || config.ShellyComponent != "switch:0" {
+	if config.Role != "dryer" {
 		t.Fatalf("unexpected config: %+v", config)
 	}
 }

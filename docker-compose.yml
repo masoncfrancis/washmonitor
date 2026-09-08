@@ -13,24 +13,24 @@ services:
       - ./config:/config:ro
     restart: unless-stopped
 
-  agent-dryer:
-    build:
-      context: ./agent-dryer
-      dockerfile: Dockerfile
-    container_name: washmonitor-agent-dryer
-    ports:
-      - "8005:8005"
-    restart: unless-stopped
-    depends_on:
-      - api
-    volumes:
-      - ./config:/config:ro
-    environment:
-      - API_SERVER_URL=http://api:8001
-      - SEND_SMS_URL=https://your_sms_webhook_url
-      - SMS_USER=your_sms_username
-      - SMS_PASSWORD=your_sms_password
-      - SENTRY_DSN=https://your_sentry_project_dsn_here
+  # agent-dryer:
+  #   build:
+  #     context: ./agent-dryer
+  #     dockerfile: Dockerfile
+  #   container_name: washmonitor-agent-dryer
+  #   ports:
+  #     - "8005:8005"
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - api
+  #   volumes:
+  #     - ./config:/config:ro
+  #   environment:
+  #     - API_SERVER_URL=http://api:8001
+  #     - SEND_SMS_URL=https://your_sms_webhook_url
+  #     - SMS_USER=your_sms_username
+  #     - SMS_PASSWORD=your_sms_password
+  #     - SENTRY_DSN=https://your_sentry_project_dsn_here
 
   agent-washer:
     build:
@@ -52,8 +52,6 @@ services:
     restart: unless-stopped
 
   worker-shelly:
-    profiles:
-      - shelly
     build:
       context: ./worker-shelly
       dockerfile: Dockerfile
@@ -63,19 +61,18 @@ services:
     environment:
       - APPLIANCE_ROLE=washer
       - API_SERVER_URL=http://api:8001
-      - SHELLY_URL=http://your_shelly_ip
-      - SHELLY_COMPONENT=switch:0
+      - SHELLY_URL=http://your_shelly_device_ip
       - SHELLY_USERNAME=
       - SHELLY_PASSWORD=
-      - POWER_ACTIVE_THRESHOLD_W=20
-      - POWER_INACTIVE_THRESHOLD_W=5
-      - POWER_INACTIVE_DURATION_SECONDS=300
+      - CURRENT_ACTIVE_THRESHOLD_A=0.5
+      - CURRENT_INACTIVE_THRESHOLD_A=0.1
+      - CURRENT_INACTIVE_DURATION_SECONDS=300
       - SHELLY_POLL_INTERVAL_SECONDS=5
       - HTTP_TIMEOUT_SECONDS=10
       - SEND_SMS_URL=https://your_sms_webhook_url
       - SMS_USER=your_sms_username
       - SMS_PASSWORD=your_sms_password
-      - SENTRY_DSN=https://your_sentry_project_dsn_here
+      - SENTRY_DSN= # https://your_sentry_project_dsn_here
     depends_on:
       - api
     restart: unless-stopped
