@@ -43,15 +43,15 @@ func TestShellyClientReadCurrentRejectsMissingCurrent(t *testing.T) {
 	}
 }
 
-func TestCurrentMonitorRequiresActiveReading(t *testing.T) {
+func TestCurrentMonitorCompletesWhenStartedInactive(t *testing.T) {
 	monitor := NewCurrentMonitor(0.5, 0.1, 10*time.Second)
 	start := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	if monitor.Observe(start, 0, nil) {
-		t.Fatal("monitor completed without an active reading")
+		t.Fatal("monitor completed on the first inactive reading")
 	}
-	if monitor.Observe(start.Add(10*time.Second), 0, nil) {
-		t.Fatal("monitor completed without an active reading")
+	if !monitor.Observe(start.Add(10*time.Second), 0, nil) {
+		t.Fatal("monitor did not complete after inactive duration")
 	}
 	if monitor.State() != inactive {
 		t.Fatalf("state = %v, want inactive", monitor.State())

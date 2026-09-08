@@ -159,7 +159,6 @@ type CurrentMonitor struct {
 	inactiveThreshold float64
 	inactiveDuration  time.Duration
 	state             CurrentState
-	activeObserved    bool
 	inactiveElapsed   time.Duration
 	lastGoodAt        time.Time
 	lastObservationOK bool
@@ -176,7 +175,6 @@ func NewCurrentMonitor(activeThreshold, inactiveThreshold float64, inactiveDurat
 
 func (monitor *CurrentMonitor) Reset() {
 	monitor.state = unknown
-	monitor.activeObserved = false
 	monitor.inactiveElapsed = 0
 	monitor.lastGoodAt = time.Time{}
 	monitor.lastObservationOK = false
@@ -201,7 +199,6 @@ func (monitor *CurrentMonitor) Observe(now time.Time, amps float64, err error) b
 	switch {
 	case amps >= monitor.activeThreshold:
 		monitor.state = active
-		monitor.activeObserved = true
 		monitor.inactiveElapsed = 0
 	case amps <= monitor.inactiveThreshold:
 		monitor.state = inactive
@@ -209,7 +206,7 @@ func (monitor *CurrentMonitor) Observe(now time.Time, amps float64, err error) b
 		monitor.state = inactive
 	}
 
-	return monitor.activeObserved && monitor.state == inactive && monitor.inactiveElapsed >= monitor.inactiveDuration
+	return monitor.state == inactive && monitor.inactiveElapsed >= monitor.inactiveDuration
 }
 
 func (monitor *CurrentMonitor) State() CurrentState {
@@ -410,14 +407,14 @@ func (worker *Worker) tick(ctx context.Context, now time.Time) {
 	currentState := worker.monitor.State()
 	if previousState != currentState {
 		log.Printf("current state transition role=%s from=%s to=%s amps=%.3f", worker.config.Role, currentStateName(previousState), currentStateName(currentState), amps)
-		if previousState == active && currentState == inactive {
+		if currentState == inactive {
 			log.Printf("inactive timer started role=%s amps=%.3f required=%s", worker.config.Role, amps, worker.monitor.inactiveDuration)
 		}
 	}
 	if currentState == active && previousElapsed > 0 {
 		log.Printf("inactive timer reset role=%s reason=active_current amps=%.3f previous_elapsed=%s", worker.config.Role, amps, previousElapsed)
 	}
-	if !completed && worker.monitor.activeObserved && currentState == inactive {
+	if !completed && currentState == inactive {
 		progress := int(worker.monitor.inactiveElapsed * 100 / worker.monitor.inactiveDuration)
 		milestone := (progress / 25) * 25
 		if milestone > 75 {

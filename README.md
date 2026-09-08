@@ -21,11 +21,12 @@ indicate that the machine is running; readings at or below
 `CURRENT_INACTIVE_THRESHOLD_A` indicate that it is inactive. Values between
 those thresholds preserve the previous state.
 
-The worker requires an active reading after monitoring starts before it can
-notify. It then waits for `CURRENT_INACTIVE_DURATION_SECONDS` of valid inactive
-readings before sending the existing finished notification and returning the
-selected appliance to `idle`. Shelly request failures mark the selected sensor
-unhealthy and do not count toward the inactive duration.
+The worker starts counting from the first valid inactive reading, including when
+monitoring begins after the appliance has already finished. It waits for
+`CURRENT_INACTIVE_DURATION_SECONDS` of valid inactive readings before sending
+the existing finished notification and returning the selected appliance to
+`idle`. Shelly request failures mark the selected sensor unhealthy and do not
+count toward the inactive duration.
 
 To use it in Compose, disable the existing worker for the selected role and
 start the optional profile with `docker compose --profile shelly up`. Only one
