@@ -379,7 +379,7 @@ const LaundryDashboard = () => {
             {!washerUnavailableState && washerUser === null && (
               <>
                 <div className="appliance-title">Washer</div>
-                <div className="appliance-muted">Tap to receive a text message when finished</div>
+                <div className="appliance-muted">Tap to receive a text when done</div>
               </>
             )}
             {!washerUnavailableState && washerUser !== null && (
@@ -415,7 +415,7 @@ const LaundryDashboard = () => {
             {!dryerUnavailableState && dryerUser === null && (
               <>
                 <div className="appliance-title">Dryer</div>
-                <div className="appliance-muted">Tap to receive a text message when finished</div>
+                <div className="appliance-muted">Tap to receive a text when done</div>
               </>
             )}
             {!dryerUnavailableState && dryerUser !== null && (
