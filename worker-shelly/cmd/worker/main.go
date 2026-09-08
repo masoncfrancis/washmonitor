@@ -163,6 +163,7 @@ type CurrentMonitor struct {
 	inactiveElapsed   time.Duration
 	lastGoodAt        time.Time
 	lastObservationOK bool
+	lastProgress      int
 }
 
 func NewCurrentMonitor(activeThreshold, inactiveThreshold float64, inactiveDuration time.Duration) *CurrentMonitor {
@@ -179,6 +180,7 @@ func (monitor *CurrentMonitor) Reset() {
 	monitor.inactiveElapsed = 0
 	monitor.lastGoodAt = time.Time{}
 	monitor.lastObservationOK = false
+	monitor.lastProgress = 0
 }
 
 func (monitor *CurrentMonitor) Observe(now time.Time, amps float64, err error) bool {
@@ -212,6 +214,17 @@ func (monitor *CurrentMonitor) Observe(now time.Time, amps float64, err error) b
 
 func (monitor *CurrentMonitor) State() CurrentState {
 	return monitor.state
+}
+
+func currentStateName(state CurrentState) string {
+	switch state {
+	case active:
+		return "active"
+	case inactive:
+		return "inactive"
+	default:
+		return "unknown"
+	}
 }
 
 type agentStatus struct {
@@ -364,6 +377,9 @@ func (worker *Worker) tick(ctx context.Context, now time.Time) {
 		log.Printf("get %s status: %v", worker.config.Role, err)
 		return
 	}
+	if worker.lastStatus != "" && worker.lastStatus != status.Status {
+		log.Printf("status transition role=%s from=%s to=%s user=%s", worker.config.Role, worker.lastStatus, status.Status, status.User)
+	}
 	amps, readErr := worker.shelly.ReadCurrent(ctx)
 	if err := worker.checkIn(ctx, readErr == nil); err != nil {
 		log.Printf("check in %s worker: %v", worker.config.Role, err)
@@ -378,6 +394,7 @@ func (worker *Worker) tick(ctx context.Context, now time.Time) {
 	if status.Status != "monitor" {
 		if worker.lastStatus == "monitor" {
 			worker.monitor.Reset()
+			log.Printf("monitor reset role=%s reason=status_%s", worker.config.Role, status.Status)
 		}
 		worker.lastStatus = status.Status
 		return
@@ -385,14 +402,44 @@ func (worker *Worker) tick(ctx context.Context, now time.Time) {
 	if worker.lastStatus != "monitor" {
 		worker.monitor.Reset()
 		worker.lastStatus = "monitor"
+		log.Printf("monitor started role=%s user=%s", worker.config.Role, status.User)
 	}
-	if worker.monitor.Observe(now, amps, nil) {
+	previousState := worker.monitor.State()
+	previousElapsed := worker.monitor.inactiveElapsed
+	completed := worker.monitor.Observe(now, amps, nil)
+	currentState := worker.monitor.State()
+	if previousState != currentState {
+		log.Printf("current state transition role=%s from=%s to=%s amps=%.3f", worker.config.Role, currentStateName(previousState), currentStateName(currentState), amps)
+		if previousState == active && currentState == inactive {
+			log.Printf("inactive timer started role=%s amps=%.3f required=%s", worker.config.Role, amps, worker.monitor.inactiveDuration)
+		}
+	}
+	if currentState == active && previousElapsed > 0 {
+		log.Printf("inactive timer reset role=%s reason=active_current amps=%.3f previous_elapsed=%s", worker.config.Role, amps, previousElapsed)
+	}
+	if !completed && worker.monitor.activeObserved && currentState == inactive {
+		progress := int(worker.monitor.inactiveElapsed * 100 / worker.monitor.inactiveDuration)
+		milestone := (progress / 25) * 25
+		if milestone > 75 {
+			milestone = 75
+		}
+		if milestone >= 25 && milestone > worker.monitor.lastProgress {
+			remaining := worker.monitor.inactiveDuration - worker.monitor.inactiveElapsed
+			log.Printf("inactive progress role=%s elapsed=%s remaining=%s percent=%d", worker.config.Role, worker.monitor.inactiveElapsed, remaining, milestone)
+			worker.monitor.lastProgress = milestone
+		}
+	}
+	if completed {
+		log.Printf("inactive threshold reached role=%s inactive_for=%s threshold=%s", worker.config.Role, worker.monitor.inactiveElapsed, worker.monitor.inactiveDuration)
 		if err := worker.setIdle(ctx); err != nil {
 			log.Printf("set %s idle: %v", worker.config.Role, err)
 			return
 		}
+		log.Printf("status transition role=%s from=monitor to=idle reason=inactive_timeout inactive_for=%s", worker.config.Role, worker.monitor.inactiveElapsed)
 		if err := worker.notify(ctx, status.User); err != nil {
-			log.Printf("notify %s completion: %v", worker.config.Role, err)
+			log.Printf("completion notification failed role=%s user=%s err=%v", worker.config.Role, status.User, err)
+		} else if worker.config.SendSMSURL != "" {
+			log.Printf("completion notification sent role=%s user=%s", worker.config.Role, status.User)
 		}
 		worker.monitor.Reset()
 		worker.lastStatus = "idle"
