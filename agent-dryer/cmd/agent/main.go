@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	sentryfiber "github.com/getsentry/sentry-go/fiber"
+	sentryfiber "github.com/getsentry/sentry-go/fiberv3"
 	sentrylogrus "github.com/getsentry/sentry-go/logrus"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/joho/godotenv"
 	"github.com/robfig/cron/v3"
 	logrus "github.com/sirupsen/logrus"
@@ -126,35 +126,7 @@ func main() {
 		panic("API_SERVER_URL environment variable is not set")
 	}
 
-	app := fiber.New()
-	app.Use(sentryfiber.New(sentryfiber.Options{Repanic: true}))
-	app.Use(cors.New())
-
-	app.Get("/status", func(c *fiber.Ctx) error {
-		log.Printf("Received %s request at %s", c.Method(), c.Path())
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"status": "ok",
-		})
-	})
-
-	app.Post("/submitState", func(c *fiber.Ctx) error {
-		log.Printf("Received %s request at %s", c.Method(), c.Path())
-		var req struct {
-			State string `json:"state"`
-		}
-		if err := c.BodyParser(&req); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
-		}
-		if req.State != "vibrating" && req.State != "stationary" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "State must be 'vibrating' or 'stationary'"})
-		}
-		stateMutex.Lock()
-		stateHistory = append(stateHistory, StateSubmission{State: req.State, Timestamp: time.Now()})
-		lastStateSubmission = time.Now()
-		stateMutex.Unlock()
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "State submitted"})
-	})
-
+	app := newApp()
 	c := cron.New()
 	c.AddFunc("@every 5s", func() {
 		// Get agent status from API server
@@ -410,4 +382,37 @@ func isStateConsistent(history []StateSubmission, now time.Time, serviceStartTim
 	}
 
 	return true, state, ""
+}
+
+func newApp() *fiber.App {
+	app := fiber.New()
+	app.Use(sentryfiber.New(sentryfiber.Options{Repanic: true}))
+	app.Use(cors.New())
+
+	app.Get("/status", func(c fiber.Ctx) error {
+		log.Printf("Received %s request at %s", c.Method(), c.Path())
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"status": "ok",
+		})
+	})
+
+	app.Post("/submitState", func(c fiber.Ctx) error {
+		log.Printf("Received %s request at %s", c.Method(), c.Path())
+		var req struct {
+			State string `json:"state"`
+		}
+		if err := c.Bind().Body(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+		}
+		if req.State != "vibrating" && req.State != "stationary" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "State must be 'vibrating' or 'stationary'"})
+		}
+		stateMutex.Lock()
+		stateHistory = append(stateHistory, StateSubmission{State: req.State, Timestamp: time.Now()})
+		lastStateSubmission = time.Now()
+		stateMutex.Unlock()
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "State submitted"})
+	})
+
+	return app
 }

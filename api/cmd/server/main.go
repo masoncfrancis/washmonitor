@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	sentryfiber "github.com/getsentry/sentry-go/fiber"
+	sentryfiber "github.com/getsentry/sentry-go/fiberv3"
 	sentrylogrus "github.com/getsentry/sentry-go/logrus"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/joho/godotenv"
 	"github.com/masoncfrancis/washmonitor-agent/api/internal/userinfo"
 	logrus "github.com/sirupsen/logrus"
@@ -96,16 +96,24 @@ func main() {
 	}
 	log.Printf("Agent offline threshold: %v", offlineThreshold)
 
+	app := newApp()
+	if err := app.Listen(":8001"); err != nil {
+		sentry.CaptureException(err)
+		log.Fatalf("Failed to start API server: %v", err)
+	}
+}
+
+func newApp() *fiber.App {
 	app := fiber.New()
 	app.Use(sentryfiber.New(sentryfiber.Options{Repanic: true}))
 
 	// Permitir CORS para todos los orígenes
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
+		AllowOrigins: []string{"*"},
 	}))
 
 	// Endpoint de health check
-	app.Get("/health", func(c *fiber.Ctx) error {
+	app.Get("/health", func(c fiber.Ctx) error {
 		// Determine online status: offline if last seen > offlineThreshold
 		agentMutex.Lock()
 		ws := washerLastSeen
@@ -169,9 +177,9 @@ func main() {
 		})
 	})
 
-	app.Post("/washer/setAgentStatus", func(c *fiber.Ctx) error {
+	app.Post("/washer/setAgentStatus", func(c fiber.Ctx) error {
 		var body AgentState
-		if err := c.BodyParser(&body); err != nil {
+		if err := c.Bind().Body(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Malformed request",
 			})
@@ -213,7 +221,7 @@ func main() {
 		})
 	})
 
-	app.Get("/washer/getAgentStatus", func(c *fiber.Ctx) error {
+	app.Get("/washer/getAgentStatus", func(c fiber.Ctx) error {
 		user := washerAgentState.User
 		if washerAgentState.Status == "idle" {
 			user = ""
@@ -224,9 +232,9 @@ func main() {
 		})
 	})
 
-	app.Post("/dryer/setAgentStatus", func(c *fiber.Ctx) error {
+	app.Post("/dryer/setAgentStatus", func(c fiber.Ctx) error {
 		var body AgentState
-		if err := c.BodyParser(&body); err != nil {
+		if err := c.Bind().Body(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Malformed request",
 			})
@@ -269,11 +277,11 @@ func main() {
 	})
 
 	// Top-level check-in endpoints for agents (heartbeats)
-	app.Post("/washer/checkin", func(c *fiber.Ctx) error {
+	app.Post("/washer/checkin", func(c fiber.Ctx) error {
 		var body struct {
 			SensorOk bool `json:"sensorOk"`
 		}
-		if err := c.BodyParser(&body); err != nil {
+		if err := c.Bind().Body(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "sensorOk required",
 			})
@@ -286,11 +294,11 @@ func main() {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	app.Post("/dryer/checkin", func(c *fiber.Ctx) error {
+	app.Post("/dryer/checkin", func(c fiber.Ctx) error {
 		var body struct {
 			SensorOk bool `json:"sensorOk"`
 		}
-		if err := c.BodyParser(&body); err != nil {
+		if err := c.Bind().Body(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "sensorOk required",
 			})
@@ -303,7 +311,7 @@ func main() {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	app.Get("/dryer/getAgentStatus", func(c *fiber.Ctx) error {
+	app.Get("/dryer/getAgentStatus", func(c fiber.Ctx) error {
 		user := dryerAgentState.User
 		if dryerAgentState.Status == "idle" {
 			user = ""
@@ -315,7 +323,7 @@ func main() {
 	})
 
 	// Endpoint for user names and colors
-	app.Get("/users/names", func(c *fiber.Ctx) error {
+	app.Get("/users/names", func(c fiber.Ctx) error {
 		users := userinfo.GetAllUsers()
 		response := make(map[string]fiber.Map)
 		for _, user := range users {
@@ -327,9 +335,5 @@ func main() {
 		return c.Status(fiber.StatusOK).JSON(response)
 	})
 
-	if err := app.Listen(":8001"); err != nil {
-		sentry.CaptureException(err)
-		log.Fatalf("Failed to start API server: %v", err)
-	}
+	return app
 }
-
