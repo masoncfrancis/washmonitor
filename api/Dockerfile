@@ -20,3 +20,5 @@ COPY --from=builder /server /server
 EXPOSE 8001
 
 CMD ["/server"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD wget -qO- http://localhost:8001/health || exit 1

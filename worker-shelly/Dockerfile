@@ -17,3 +17,5 @@ COPY --from=builder /worker /worker
 EXPOSE 8005
 
 ENTRYPOINT ["/worker"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD wget -qO- http://localhost:8005/health || exit 1
